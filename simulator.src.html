@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blok Tahsis Simülatörü</title>
+<style>:root {
+  --bg: #F3F3EF;
+  --ink: #111318;
+  --accent: #1B3FE4;
+  --hl: #9DB4FF;
+  --other: #AEB3BB;
+  --free: #FBFBF8;
+  --freeb: #B9BDC4;
+  --muted: #565B65;
+  --head: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+  --body: 'Barlow', Arial, sans-serif;
+  --mono: 'JetBrains Mono', Consolas, monospace;
+}
+* { box-sizing: border-box; border-radius: 0; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.3 var(--body);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 214px;
+  min-width: 1280px;
+  min-height: 780px;
+}
+h1, h2, h3 { font-family: var(--head); text-transform: uppercase; letter-spacing: .03em; margin: 0; font-weight: 700; }
+h1 { font-size: 30px; line-height: 1; }
+h2 { font-size: 21px; line-height: 1.15; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+
+button {
+  font: 600 17px/1 var(--head);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--ink);
+  background: transparent;
+  border: 2px solid var(--ink);
+  padding: 7px 12px 6px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--ink); color: var(--bg); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #FFFFFF; }
+button.primary:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); }
+button:disabled { color: var(--muted); border-color: var(--freeb); background: transparent; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, .logBody:focus-visible, .scroll:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+input, select {
+  font: 16px/1.2 var(--mono);
+  color: var(--ink);
+  background: var(--free);
+  border: 2px solid var(--ink);
+  padding: 5px 7px;
+  height: 34px;
+}
+input[type=number] { width: 84px; }
+input[type=text] { width: 84px; }
+input[type=range] { padding: 0; border: 0; background: transparent; width: 150px; accent-color: var(--accent); height: 28px; }
+input[type=checkbox] { width: 20px; height: 20px; padding: 0; accent-color: var(--accent); vertical-align: -4px; margin: 0 6px 0 0; }
+label { font-size: 15px; color: var(--muted); display: inline-flex; flex-direction: column; gap: 2px; }
+label.inline { flex-direction: row; align-items: center; color: var(--ink); font-size: 16px; }
+
+.top { display: flex; align-items: flex-end; gap: 28px; padding: 12px 20px 0; border-bottom: 2px solid var(--ink); }
+.brand { padding-bottom: 11px; }
+.tabs { display: flex; align-items: flex-end; }
+.tabs button { border-bottom: 0; margin-right: -2px; padding: 11px 18px 9px; font-size: 21px; }
+.tabs button[aria-selected=true], .tabs button[aria-pressed=true] { background: var(--accent); border-color: var(--ink); color: #FFFFFF; }
+.tabs button[aria-selected=true]:hover, .tabs button[aria-pressed=true]:hover { background: var(--accent); color: #FFFFFF; }
+.top .spacer { flex: 1; }
+.viewLabel { font: 600 15px/1 var(--head); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0 10px 12px 0; }
+
+main { display: grid; grid-template-columns: auto minmax(0, 1fr); min-height: 0; }
+#mapPane { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 12px 20px 8px; border-right: 2px solid var(--ink); }
+.paneHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 32px; margin-bottom: 4px; overflow: hidden; }
+.reads { font: 700 16px/1 var(--mono); background: var(--hl); color: var(--ink); border: 2px solid var(--ink); padding: 4px 7px; display: none; white-space: nowrap; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+#readsMain { flex: 0 1 auto; }
+.reads.on { display: block; }
+#maps { flex: 1; min-height: 0; overflow: hidden; }
+#maps.four { display: grid; grid-template-columns: auto auto; gap: 10px 14px; align-content: start; justify-content: start; }
+.mapBox h3 { font-size: 18px; line-height: 1; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 2px 8px; min-height: 30px; border-top: 2px solid var(--ink); padding: 2px 0 4px; white-space: nowrap; overflow: hidden; }
+.mapBox h3 > span:first-child { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.mapBox h3 .reads { margin-left: auto; }
+.mapBox.active h3 { color: var(--accent); border-top-color: var(--accent); }
+.mapBox .reads { font-size: 13px; padding: 1px 4px; border-width: 1px; text-transform: none; letter-spacing: 0; white-space: normal; max-width: 100%; }
+.map { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: var(--gap, 2px); }
+.cell {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--c, var(--free));
+  color: var(--t, var(--muted));
+  border: 1px solid var(--ink);
+  font: 500 15px/1 var(--mono);
+  cursor: default;
+}
+.cell.free { border-color: var(--freeb); }
+.cell.own { cursor: pointer; }
+.cell.meta {
+  border-width: 3px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M-2 2L2 -2M0 10L10 0M8 12L12 8' stroke='%23111318' stroke-width='1.5'/%3E%3C/svg%3E");
+}
+.cell .bn { position: absolute; left: 2px; top: 1px; }
+.cell .fl { position: absolute; right: 2px; bottom: 1px; font-weight: 700; }
+.cell.meta .bn, .cell.meta .fl { background-color: var(--c); padding: 1px 2px; }
+.cell.meta .bn { left: 0; top: 0; }
+.cell.meta .fl { right: 0; bottom: 0; }
+.map.t1 .fl, .map.t0 .fl, .map.t0 .bn { display: none; }
+.map.tight .cell .bn { top: 0; left: 1px; }
+.map.tight .cell .fl { bottom: 0; right: 1px; }
+.map.tight .cell.meta { border-width: 2px; }
+.map.big .cell { font-size: 20px; }
+.map.big .cell .bn { left: 4px; top: 3px; }
+.map.big .cell .fl { right: 4px; bottom: 3px; }
+.cell.read { outline: 3px solid var(--ink); outline-offset: -3px; }
+.cell.reading { background-color: var(--hl); background-image: none; color: var(--ink); outline: 5px solid var(--ink); outline-offset: -5px; z-index: 2; }
+.cell.reading .bn, .cell.reading .fl { background-color: var(--hl); }
+.map.t0 .cell.read { outline-width: 2px; outline-offset: -2px; }
+.map.t0 .cell.reading { outline-width: 3px; outline-offset: -3px; }
+.mapFoot { padding-top: 4px; }
+#mapTitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; max-width: 62%; }
+#readout { font: 15px/1.2 var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 0; min-width: 0; text-align: right; }
+.legend { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 15px; line-height: 22px; min-height: 22px; color: var(--muted); white-space: nowrap; }
+.legend i { display: inline-block; width: 16px; height: 16px; border: 1px solid var(--ink); vertical-align: -3px; margin-right: 5px; }
+.legend .lgFree { background: var(--free); border-color: var(--freeb); }
+.legend .lgFile { background: var(--accent); }
+.legend .lgOther { background: var(--other); }
+.legend .lgMeta { background-color: var(--accent); border-width: 2px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M-2 2L2 -2M0 10L10 0M8 12L12 8' stroke='%23111318' stroke-width='1.5'/%3E%3C/svg%3E"); }
+.legend .lgRead { background: var(--hl); border-width: 3px; }
+
+#side { display: grid; grid-template-columns: minmax(410px, .72fr) minmax(0, 1fr); min-height: 0; min-width: 0; }
+.col { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 12px 18px 8px; gap: 12px; overflow-x: hidden; overflow-y: auto; }
+.sec { min-width: 0; }
+.xscroll { overflow-x: auto; }
+.col + .col { border-left: 2px solid var(--ink); }
+.sec > h2 { border-bottom: 2px solid var(--ink); padding-bottom: 3px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; white-space: nowrap; }
+.sec > h2 small { font: 15px/1 var(--body); text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 100 auto; min-width: 0; }
+.sec.grow { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+#secFiles.grow { min-height: 118px; }
+#secStruct.grow { flex-grow: 1.6; }
+.scroll { overflow: auto; min-height: 0; flex: 1; }
+.row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; }
+.row + .row { margin-top: 8px; }
+form { margin: 0; }
+#status { min-height: 22px; font-size: 15px; border-left: 6px solid var(--hl); padding: 2px 0 2px 8px; position: sticky; bottom: 0; background: var(--bg); z-index: 1; }
+#status:empty { border-left-color: transparent; position: static; }
+#selName { font: 700 17px/1 var(--mono); color: var(--ink); text-transform: none; letter-spacing: 0; border: 2px solid var(--ink); padding: 2px 8px; background: var(--free); }
+#selName.none { border-color: transparent; background: transparent; color: var(--muted); font-weight: 400; }
+
+table { border-collapse: collapse; width: 100%; }
+th { font: 600 15px/1.1 var(--head); text-transform: uppercase; letter-spacing: .04em; text-align: left; color: var(--muted); border-bottom: 2px solid var(--ink); padding: 3px 6px; position: sticky; top: 0; background: var(--bg); }
+td { padding: 3px 6px; border-bottom: 1px solid var(--freeb); font-size: 16px; vertical-align: baseline; }
+td.num, th.num { text-align: right; }
+td.num { font: 15px/1.2 var(--mono); white-space: nowrap; }
+tr.sel td { background: #FFFFFF; border-bottom-color: var(--ink); border-top: 1px solid var(--ink); }
+tr.gone td { color: var(--muted); }
+.fileBtn { border: 0; padding: 3px 6px 3px 0; font: 700 16px/1 var(--mono); text-transform: none; letter-spacing: 0; display: inline-flex; align-items: center; gap: 7px; }
+.fileBtn:hover:not(:disabled) { background: transparent; color: var(--accent); }
+.sw { display: inline-block; width: 16px; height: 16px; border: 1px solid var(--ink); }
+#metrics td:first-child, #cmp td:first-child { color: var(--ink); }
+#metrics td.note { color: var(--muted); white-space: normal; font-size: 14px; }
+#metrics td.num b { font-weight: 700; }
+#cmp th.num.active { color: var(--accent); }
+#cmp th, #cmp td { padding: 3px 4px; }
+#cmp th { font-size: 14px; letter-spacing: .02em; vertical-align: bottom; }
+#cmp td.num { font-size: 14px; }
+#cmp td:first-child { font-size: 15px; line-height: 1.2; min-width: 7em; }
+
+.st p { margin: 0 0 6px; font-size: 16px; }
+.st .cap { color: var(--muted); font-size: 15px; }
+.chain { display: flex; flex-wrap: wrap; gap: 4px 0; align-items: center; font: 15px/1 var(--mono); margin-bottom: 6px; }
+.chain .b { border: 2px solid var(--ink); padding: 4px 6px; background: var(--free); }
+.chain .a { padding: 0 4px; color: var(--muted); }
+.chain .end { color: var(--muted); padding-left: 2px; font-family: var(--body); }
+.idx { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 0; border-top: 1px solid var(--ink); border-left: 1px solid var(--ink); margin-bottom: 6px; font: 15px/1 var(--mono); }
+.idx div { border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 4px 6px; background: var(--free); display: flex; justify-content: space-between; gap: 6px; }
+.idx div span { color: var(--muted); }
+.idx div.nx { background: var(--hl); }
+
+#logPane { border-top: 2px solid var(--ink); display: flex; flex-direction: column; min-height: 0; padding: 6px 20px 8px; }
+#logPane > h2 { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 3px; }
+#logPane > h2 small { font: 15px/1 var(--body); text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 400; }
+.logBody { flex: 1; min-height: 0; overflow: auto; border-top: 2px solid var(--ink); background: var(--free); padding: 2px 0; }
+.le { display: grid; grid-template-columns: 62px 1fr; gap: 0 8px; padding: 3px 10px; border-bottom: 1px solid var(--freeb); font-size: 15px; line-height: 1.3; }
+.le .n { font-family: var(--mono); color: var(--muted); }
+.le .t { font: 700 17px/1.2 var(--head); text-transform: uppercase; letter-spacing: .03em; }
+.le .t .fid { font: 700 16px/1.2 var(--mono); text-transform: none; letter-spacing: 0; }
+.le .m { grid-column: 2; display: grid; grid-template-columns: 104px 1fr; gap: 0 8px; }
+.le .k { font: 600 15px/1.3 var(--head); text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
+.le .ln.rej { border-left: 6px solid var(--hl); padding-left: 8px; font-weight: 600; }
+.le .ln.skip { color: var(--muted); }
+
+@media (max-height: 960px) {
+  body { grid-template-rows: auto minmax(0, 1fr) 160px; }
+  .top { padding-top: 8px; }
+  .brand { padding-bottom: 9px; }
+  .tabs button { padding: 9px 16px 7px; font-size: 20px; }
+  .col { gap: 8px; padding-top: 8px; }
+  .sec > h2 { margin-bottom: 5px; }
+  .row { gap: 6px 10px; }
+  .row + .row { margin-top: 6px; }
+  #mapPane { padding-top: 8px; }
+  label.speed { flex-direction: row; align-items: center; gap: 8px; }
+  label.speed > span { display: inline-flex; align-items: center; gap: 6px; }
+}
+@media (min-width: 1280px) and (max-width: 1599px) {
+  input[type=number], input[type=text] { width: 72px; }
+  input[type=range] { width: 130px; }
+  .row { gap: 6px 8px; }
+  button { padding: 7px 8px 6px; font-size: 16px; letter-spacing: .02em; }
+  h1 { font-size: 27px; white-space: nowrap; }
+  .top { gap: 20px; }
+  .tabs button { font-size: 19px; padding: 9px 13px 7px; white-space: nowrap; }
+  #files th, #files td { padding-left: 4px; padding-right: 4px; }
+  .col { padding-left: 16px; padding-right: 16px; }
+  #metrics td { padding: 3px 4px; font-size: 15px; }
+  #metrics td.num { font-size: 14px; }
+  #metrics td.note { font-size: 13px; }
+}
+
+@media (max-width: 1279px) {
+  html, body { height: auto; }
+  body { display: block; min-width: 0; min-height: 0; }
+  .top { flex-wrap: wrap; gap: 8px 14px; padding: 10px 16px 0; }
+  .brand { flex: 1 1 auto; padding-bottom: 0; align-self: center; }
+  .top .spacer { display: none; }
+  .viewLabel { order: 1; padding: 0; align-self: center; }
+  .top .tabs[role=group] { order: 2; align-self: center; }
+  .top .tabs[role=group] button { border-bottom: 2px solid var(--ink); padding: 6px 10px 5px; font-size: 16px; }
+  #methodTabs { order: 3; flex: 1 1 100%; }
+  #methodTabs button { flex: 1 1 0; min-width: 0; padding: 9px 4px 7px; font-size: 18px; }
+  main { display: block; }
+  #mapPane { border-right: 0; border-bottom: 2px solid var(--ink); padding: 10px 16px 8px; }
+  #maps { flex: none; }
+  .legend { height: auto; }
+  #side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .col { overflow: visible; padding: 12px 16px; }
+  #status { position: static; }
+  .sec.grow { flex: none; }
+  .scroll { max-height: 380px; }
+  #logPane { height: 360px; padding: 6px 16px 8px; }
+}
+@media (max-width: 720px) {
+  h1 { font-size: 26px; }
+  #methodTabs button { font-size: 16px; }
+  #side { grid-template-columns: minmax(0, 1fr); }
+  .col + .col { border-left: 0; border-top: 2px solid var(--ink); }
+  #metrics td:first-child { white-space: normal; }
+  .le { grid-template-columns: 44px minmax(0, 1fr); padding: 3px 6px; }
+  .le .m { grid-template-columns: minmax(0, 1fr); }
+  .le .ln { overflow-wrap: anywhere; }
+  .paneHead { height: auto; min-height: 32px; flex-wrap: wrap; row-gap: 4px; }
+  #mapTitle { max-width: 100%; }
+  .reads { white-space: normal; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1>Blok Tahsis Simülatörü</h1>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Tahsis yöntemi" id="methodTabs">
+    <button role="tab" id="tab-contiguous" data-method="contiguous" aria-selected="true" aria-controls="mapPane">Bitişik</button>
+    <button role="tab" id="tab-linked" data-method="linked" aria-selected="false" aria-controls="mapPane" tabindex="-1">Bağlı liste</button>
+    <button role="tab" id="tab-indexed" data-method="indexed" aria-selected="false" aria-controls="mapPane" tabindex="-1">İndeksli</button>
+    <button role="tab" id="tab-extent" data-method="extent" aria-selected="false" aria-controls="mapPane" tabindex="-1">Extent</button>
+  </div>
+  <div class="spacer"></div>
+  <span class="viewLabel" id="viewLabel">Görünüm</span>
+  <div class="tabs" role="group" aria-labelledby="viewLabel">
+    <button id="viewTek" aria-pressed="true">Tek yöntem</button>
+    <button id="viewCmp" aria-pressed="false">Karşılaştır</button>
+  </div>
+</header>
+
+<main>
+  <section id="mapPane" role="tabpanel" aria-label="Disk haritası">
+    <div class="paneHead">
+      <h2 id="mapTitle">Disk haritası</h2>
+      <div id="readout"></div>
+      <span class="reads" id="readsMain" aria-live="polite"></span>
+    </div>
+    <div id="maps"></div>
+    <div class="mapFoot">
+      <div class="legend" aria-hidden="true">
+        <span><i class="lgFree"></i>boş</span>
+        <span><i class="lgFile"></i>dosya</span>
+        <span><i class="lgMeta"></i>üstveri</span>
+        <span><i class="lgOther"></i>diğer dosya</span>
+        <span><i class="lgRead"></i>okunan</span>
+      </div>
+    </div>
+  </section>
+
+  <div id="side">
+    <div class="col">
+      <section class="sec" aria-labelledby="hDisk">
+        <h2 id="hDisk">Disk ve yöntem <small>blok = 4096 bayt · blok adresi = 4 bayt</small></h2>
+        <div class="row">
+          <label>Disk boyutu
+            <select id="diskN">
+              <option value="64">64 blok</option>
+              <option value="256" selected>256 blok</option>
+              <option value="1024">1024 blok</option>
+            </select>
+          </label>
+          <label>Bitişik: yerleştirme
+            <select id="policy">
+              <option value="first-fit" selected>İlk uygun</option>
+              <option value="best-fit">En uygun</option>
+            </select>
+          </label>
+          <button id="btnReset">Sıfırla</button>
+        </div>
+        <div class="row">
+          <label class="inline"><input type="checkbox" id="chkFat">Bağlı listede FAT çeşitlemesini göster</label>
+        </div>
+      </section>
+
+      <section class="sec" aria-labelledby="hCreate">
+        <h2 id="hCreate">Dosya oluştur</h2>
+        <form id="fCreate" class="row" autocomplete="off" novalidate>
+          <label>Ad <input type="text" id="cName" maxlength="6"></label>
+          <label>Boyut <input type="number" id="cSize" min="1" step="1" value="5"></label>
+          <label>Birim
+            <select id="cUnit"><option value="blok" selected>blok</option><option value="kb">KB</option></select>
+          </label>
+          <button class="primary" type="submit">Oluştur</button>
+        </form>
+      </section>
+
+      <section class="sec" aria-labelledby="hSel">
+        <h2 id="hSel">Seçili dosya <span id="selName" class="none">yok</span></h2>
+        <div class="row">
+          <form id="fExtend" class="row" autocomplete="off" novalidate>
+            <label>Ek blok <input type="number" id="eSize" min="1" step="1" value="3"></label>
+            <button type="submit" id="btnExtend">Büyüt</button>
+          </form>
+          <form id="fRead" class="row" autocomplete="off" novalidate>
+            <label><span>Mantıksal blok <span class="mono" id="readHint"></span></span> <input type="number" id="readIdx" min="0" step="1" value="0"></label>
+            <button type="submit" id="btnRead" class="primary">Oku</button>
+          </form>
+        </div>
+        <div class="row">
+          <button id="btnSeq">Sıralı oku</button>
+          <button id="btnDelete">Sil</button>
+          <button id="btnDesel">Seçimi kaldır</button>
+        </div>
+      </section>
+
+      <section class="sec" aria-labelledby="hWl">
+        <h2 id="hWl">Rastgele iş yükü <small id="wlProg"></small></h2>
+        <div class="row">
+          <label>Tohum <input type="number" id="wSeed" min="1" step="1" value="7"></label>
+          <label>Hedef doluluk
+            <select id="wU"><option value="0.5">0,50</option><option value="0.7" selected>0,70</option><option value="0.9">0,90</option></select>
+          </label>
+          <label>İşlem sayısı <input type="number" id="wOps" min="0" step="10" value="150"></label>
+          <label class="speed">Hız <span><input type="range" id="wSpeed" min="1" max="40" step="1" value="4" aria-describedby="wSpeedV"> <span class="mono" id="wSpeedV">4 işlem/sn</span></span></label>
+        </div>
+        <div class="row">
+          <button id="btnPlay" class="primary">Başlat</button>
+          <button id="btnPause" disabled>Duraklat</button>
+          <button id="btnStep">Tek adım</button>
+          <button id="btnFinish" disabled>Sona git</button>
+        </div>
+      </section>
+
+      <div id="status" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="col">
+      <section class="sec" aria-labelledby="hMet" id="secMetrics">
+        <h2 id="hMet">Canlı ölçütler <small id="metSub"></small></h2>
+        <table id="metrics"><tbody></tbody></table>
+      </section>
+      <section class="sec" aria-labelledby="hCmp" id="secCmp" hidden>
+        <h2 id="hCmp">Karşılaştırma <small>aynı işlem dizisi, beş sütun</small></h2>
+        <div class="xscroll"><table id="cmp"><thead></thead><tbody></tbody></table></div>
+      </section>
+      <section class="sec grow" aria-labelledby="hFiles" id="secFiles">
+        <h2 id="hFiles">Dosyalar <small id="filesSub"></small></h2>
+        <div class="scroll" tabindex="0" aria-labelledby="hFiles">
+          <table id="files">
+            <thead><tr><th>Ad</th><th class="num">Boyut</th><th class="num">Blok</th><th class="num">Parça</th><th class="num">Üstveri</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="sec grow" aria-labelledby="hSt" id="secStruct">
+        <h2 id="hSt">Disk üzerindeki yapı <small id="stSub"></small></h2>
+        <div class="scroll st" id="struct" tabindex="0" aria-labelledby="hSt"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<section id="logPane" aria-labelledby="hLog">
+  <h2 id="hLog">Adım günlüğü <small id="logSub"></small></h2>
+  <div class="logBody" id="logBody" tabindex="0" role="log" aria-labelledby="hLog"></div>
+</section>
+
+<!-- BUILD:CORE --><script src="sim-core.js"></script><!-- /BUILD:CORE -->
+<script>
+(function () {
+  'use strict';
+  var C = window.SimCore;
+  var $ = function (id) { return document.getElementById(id); };
+  var KEYS = ['contiguous', 'linked', 'indexed', 'extent', 'fat'];
+  var FOUR = ['contiguous', 'linked', 'indexed', 'extent'];
+  var LABEL = C.LABELS;
+  var B = C.DEFAULTS.B, P = C.DEFAULTS.P;
+  var COLS = { 64: 8, 256: 16, 1024: 32 };
+  var PALETTE = [
+    ['#1B3FE4', '#FFFFFF'], ['#3D5A80', '#FFFFFF'], ['#E5482D', '#111318'], ['#1E9E6A', '#111318'],
+    ['#5CB8F2', '#111318'], ['#8A5A2B', '#FFFFFF'], ['#F29CB7', '#111318'], ['#0B5D66', '#FFFFFF']
+  ];
+  var OTHER = ['#AEB3BB', '#111318'];
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var S = {
+    N: 256, view: 'tek', method: 'contiguous', fat: false, policy: 'first-fit',
+    history: [], allocs: {}, log: [], logDrawn: 0, step: 0,
+    logical: new Map(), nextColor: 0, selected: null,
+    maps: [], play: null, anim: null, speed: 4
+  };
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function nf(x, d) { return x.toFixed(d).replace('.', ','); }
+  function status(msg) { $('status').textContent = msg || ''; }
+  function activeKey() { return S.method === 'linked' && S.fat ? 'fat' : S.method; }
+  function visibleKeys() { return S.view === 'tek' ? [activeKey()] : FOUR.map(function (k) { return k === 'linked' && S.fat ? 'fat' : k; }); }
+  function methodTitle(key) {
+    if (key === 'contiguous') return LABEL.contiguous + (S.policy === 'best-fit' ? ' (en uygun)' : ' (ilk uygun)');
+    if (key === 'fat') return LABEL.linked + ' (FAT çeşitlemesi)';
+    return LABEL[key];
+  }
+  function sizeText(bytes) {
+    if (bytes % B === 0) return (bytes / B) + ' blok (' + bytes + ' bayt)';
+    return bytes + ' bayt (' + nf(bytes / 1024, 1) + ' KB)';
+  }
+  function pathText(p) {
+    if (p.length <= 14) return p.join(' → ');
+    return p.slice(0, 8).join(' → ') + ' → … → ' + p.slice(-3).join(' → ');
+  }
+  function colorOf(id) {
+    var f = S.logical.get(id);
+    return PALETTE[(f ? f.color : 0) % PALETTE.length];
+  }
+  function shortName(id) { return id.length > 4 ? id.slice(0, 4) : id; }
+  function nextName() {
+    var i, n;
+    for (i = 0; i < 26; i++) { n = String.fromCharCode(65 + i); if (!S.logical.has(n)) return n; }
+    for (i = 1; i < 1000; i++) { n = 'F' + i; if (!S.logical.has(n)) return n; }
+    return 'X';
+  }
+
+  function newAllocs() {
+    S.allocs = {};
+    KEYS.forEach(function (k) {
+      S.allocs[k] = C.createAllocator({ method: k, N: S.N, B: B, P: P, policy: S.policy, log: true });
+    });
+  }
+
+  function opTitle(op) {
+    if (op.op === 'create') return ['Oluştur ', { id: op.id }, ' · ' + sizeText(op.bytes)];
+    if (op.op === 'delete') return ['Sil ', { id: op.id }];
+    return ['Büyüt ', { id: op.id }, ' · +' + sizeText(op.bytes)];
+  }
+
+  function applyToAll(op) {
+    var entry = { n: ++S.step, title: opTitle(op), res: {} };
+    var anyOk = false;
+    KEYS.forEach(function (k) {
+      var r = C.applyOp(S.allocs[k], op);
+      entry.res[k] = { ok: r.ok, skipped: !!r.skipped, lines: r.log };
+      if (r.ok) anyOk = true;
+    });
+    if (op.op === 'create') {
+      if (anyOk && !S.logical.has(op.id)) S.logical.set(op.id, { bytes: op.bytes, color: S.nextColor++ });
+    } else if (op.op === 'delete') {
+      S.logical.delete(op.id);
+      if (S.selected === op.id) S.selected = null;
+    } else if (op.op === 'extend') {
+      var f = S.logical.get(op.id);
+      if (f) f.bytes += op.bytes;
+    }
+    S.log.push(entry);
+    return entry;
+  }
+
+  function doOp(op) {
+    clearAnim();
+    S.history.push(op);
+    var e = applyToAll(op);
+    render();
+    return e;
+  }
+
+  function resetAll(msg) {
+    stopPlay();
+    clearAnim();
+    S.history = []; S.log = []; S.logDrawn = 0; S.step = 0;
+    S.logical = new Map(); S.nextColor = 0; S.selected = null;
+    newAllocs();
+    S.log.push({ n: 0, title: 'Disk sıfırlandı', note: S.N + ' blok boş; blok boyutu ' + B + ' bayt, blok adresi ' + P + ' bayt. Aynı işlemler dört yönteme (ve FAT çeşitlemesine) birlikte uygulanır.' });
+    buildMaps();
+    renderLog(true);
+    render();
+    $('cName').value = nextName();
+    $('wOps').value = C.workloadPreset(S.N).agingOps;
+    status(msg || '');
+  }
+
+  function rebuild() {
+    clearAnim();
+    var hist = S.history, sel = S.selected;
+    S.log = []; S.logDrawn = 0; S.step = 0;
+    S.logical = new Map(); S.nextColor = 0;
+    newAllocs();
+    S.log.push({ n: 0, title: 'Geçmiş yeniden oynatıldı', note: hist.length + ' işlem, bitişik tahsiste "' + (S.policy === 'best-fit' ? 'en uygun' : 'ilk uygun') + '" yerleştirme ile baştan uygulandı.' });
+    hist.forEach(function (op) { applyToAll(op); });
+    S.selected = S.logical.has(sel) ? sel : null;
+    renderLog(true);
+    render();
+  }
+
+  function buildMaps() {
+    var holder = $('maps');
+    holder.textContent = '';
+    holder.className = S.view === 'tek' ? '' : 'four';
+    S.maps = [];
+    visibleKeys().forEach(function (key) {
+      var box = el('div', 'mapBox');
+      var reads;
+      if (S.view === 'tek') {
+        reads = $('readsMain');
+      } else {
+        var h = el('h3');
+        h.appendChild(el('span', '', methodTitle(key)));
+        reads = el('span', 'reads');
+        h.appendChild(reads);
+        box.appendChild(h);
+      }
+      var map = el('div', 'map');
+      map.style.setProperty('--cols', COLS[S.N]);
+      map.setAttribute('role', 'img');
+      map.setAttribute('aria-label', methodTitle(key) + ' disk haritası, ' + S.N + ' blok');
+      var cells = [];
+      for (var b = 0; b < S.N; b++) {
+        var c = el('div', 'cell free');
+        c.dataset.b = b;
+        var bn = el('span', 'bn', String(b));
+        var fl = el('span', 'fl');
+        c.appendChild(bn); c.appendChild(fl);
+        c._fl = fl; c._k = '';
+        map.appendChild(c);
+        cells.push(c);
+      }
+      box.appendChild(map);
+      holder.appendChild(box);
+      var m = { key: key, box: box, map: map, cells: cells, reads: reads };
+      map.addEventListener('mousemove', function (ev) { hover(m, ev); });
+      map.addEventListener('mouseleave', function () { $('readout').textContent = ''; });
+      map.addEventListener('click', function (ev) { clickCell(m, ev); });
+      S.maps.push(m);
+    });
+    layout();
+  }
+
+  var NARROW = window.matchMedia ? window.matchMedia('(max-width: 1279px)') : { matches: false };
+  function layout() {
+    var holder = $('maps');
+    var cols = COLS[S.N];
+    if (NARROW.matches) {
+      $('mapPane').style.width = '';
+      var w = Math.min(holder.clientWidth, 640);
+      S.maps.forEach(function (m) {
+        var s = S.view === 'tek' ? w : Math.floor((w - 14) / 2);
+        sizeMap(m, s, cols);
+      });
+      return;
+    }
+    var availH = holder.clientHeight, W = window.innerWidth;
+    var s1 = Math.max(300, Math.min(availH, Math.floor(W * 0.46), W - 770 - 42));
+    var s4 = Math.max(140, Math.min(Math.floor((availH - 10) / 2) - 52, Math.floor((W * 0.46 - 10) / 2) - 30, Math.floor((W - 880 - 56) / 2)));
+    var paneW = s1;
+    S.maps.forEach(function (m) {
+      var s = S.view === 'tek' ? s1 : s4;
+      sizeMap(m, s, cols);
+      paneW = S.view === 'tek' ? s : 2 * s + 14;
+    });
+    $('mapPane').style.width = (paneW + 42) + 'px';
+  }
+
+  function sizeMap(m, s, cols) {
+    var gap = (S.N >= 1024 || S.view !== 'tek') ? 1 : 2;
+    var cellPx = (s - gap * (cols - 1)) / cols;
+    m.map.style.setProperty('--gap', gap + 'px');
+    m.box.style.width = s + 'px';
+    m.map.style.width = s + 'px';
+    m.map.style.height = s + 'px';
+    m.map.classList.remove('t0', 't1', 't2', 'tight', 'big');
+    m.map.classList.add(cellPx >= 32 ? 't2' : (cellPx >= 29 && S.N <= 256 ? 't1' : 't0'));
+    if (cellPx < 37) m.map.classList.add('tight');
+    if (cellPx >= 60) m.map.classList.add('big');
+  }
+
+  function paint() {
+    var act = activeKey();
+    S.maps.forEach(function (m) {
+      var a = S.allocs[m.key];
+      m.box.classList.toggle('active', S.view !== 'tek' && m.key === act);
+      for (var b = 0; b < S.N; b++) {
+        var id = a.ownerOf(b), c = m.cells[b], key;
+        if (id === null) {
+          key = 'f';
+          if (c._k !== key) {
+            c.className = 'cell free';
+            c.style.removeProperty('--c'); c.style.removeProperty('--t');
+            c._fl.textContent = '';
+            c._k = key;
+          }
+        } else {
+          var meta = a.kindOf(b) === 2;
+          var dim = S.selected !== null && id !== S.selected;
+          key = id + '|' + (meta ? 1 : 0) + '|' + (dim ? 1 : 0);
+          if (c._k !== key) {
+            var col = dim ? OTHER : colorOf(id);
+            c.className = 'cell own' + (meta ? ' meta' : '');
+            c.style.setProperty('--c', col[0]); c.style.setProperty('--t', col[1]);
+            c._fl.textContent = shortName(id);
+            c._k = key;
+          }
+        }
+      }
+    });
+  }
+
+  function cellOf(ev) {
+    var t = ev.target;
+    while (t && t.dataset && t.dataset.b === undefined) t = t.parentNode;
+    return t && t.dataset && t.dataset.b !== undefined ? parseInt(t.dataset.b, 10) : -1;
+  }
+  function hover(m, ev) {
+    var b = cellOf(ev);
+    if (b < 0) return;
+    var info = S.allocs[m.key].blockInfo(b);
+    var txt = 'Blok ' + b + ' · ';
+    if (info.free) txt += 'boş';
+    else if (info.kind === 'data') txt += info.id + ' dosyası, mantıksal blok ' + info.logical;
+    else txt += info.id + ' dosyasının ' + info.role + (info.role === 'indeks bloğu' ? ' (' + (info.ordinal + 1) + '.)' : '');
+    if (S.view !== 'tek') txt = LABEL[m.key] + ' · ' + txt;
+    $('readout').textContent = txt;
+  }
+  function clickCell(m, ev) {
+    var b = cellOf(ev);
+    if (b < 0) return;
+    var id = S.allocs[m.key].ownerOf(b);
+    if (id !== null) selectFile(id, true);
+  }
+
+  function clearAnim() {
+    if (S.anim && S.anim.timer) clearTimeout(S.anim.timer);
+    S.anim = null;
+    S.maps.forEach(function (m) {
+      m.reads.classList.remove('on');
+      m.reads.textContent = '';
+      for (var b = 0; b < m.cells.length; b++) {
+        var c = m.cells[b];
+        if (c._r) { c.classList.remove('read', 'reading'); c._r = false; c._k = ''; }
+      }
+    });
+    $('readsMain').classList.remove('on');
+    $('readsMain').textContent = '';
+    $('readsMain').title = '';
+    $('readout').style.display = '';
+  }
+
+  function animate(paths, seq) {
+    var maps = S.maps.filter(function (m) { return paths[m.key] && paths[m.key].length; });
+    if (!maps.length) return;
+    var maxLen = 0;
+    maps.forEach(function (m) { maxLen = Math.max(maxLen, paths[m.key].length); });
+    var stepMs = Math.max(25, Math.min(480, 7000 / maxLen));
+    var anim = { timer: null, k: 0 };
+    S.anim = anim;
+    function label(m, k) {
+      var p = paths[m.key], shown = Math.min(k, p.length);
+      var c = seq && shown === p.length ? C.seqCostOfPath(p) : null;
+      m.reads.classList.add('on');
+      if (S.view !== 'tek') {
+        m.reads.textContent = c ? c.reads + ' okuma + ' + c.seeks + ' konumlanma' : shown + ' / ' + p.length + ' okuma';
+        return;
+      }
+      $('readout').style.display = 'none';
+      var tiers = c
+        ? ['Disk okuması ' + shown + ' / ' + p.length + ' · konumlanma ' + c.seeks + ' · maliyet ' + c.cost,
+           c.reads + ' okuma + ' + c.seeks + ' konumlanma = maliyet ' + c.cost,
+           'maliyet ' + c.cost + ' (' + c.reads + ' + ' + c.seeks + ')']
+        : ['Disk okuması ' + shown + ' / ' + p.length, shown + ' / ' + p.length + ' okuma'];
+      m.reads.title = tiers[0];
+      for (var t = 0; t < tiers.length; t++) {
+        m.reads.textContent = tiers[t];
+        if (m.reads.scrollWidth <= m.reads.clientWidth + 1) break;
+      }
+    }
+    function step() {
+      var k = anim.k;
+      maps.forEach(function (m) {
+        var p = paths[m.key];
+        if (k < p.length) {
+          if (k > 0) { var prev = m.cells[p[k - 1]]; prev.classList.remove('reading'); prev.classList.add('read'); }
+          var cur = m.cells[p[k]];
+          cur.classList.add('reading'); cur._r = true;
+          cur._fl.textContent = (k + 1) + '.';
+          label(m, k + 1);
+        }
+      });
+      anim.k++;
+      if (anim.k < maxLen && S.anim === anim) anim.timer = setTimeout(step, stepMs);
+      else anim.timer = null;
+    }
+    if (reduceMotion) { while (anim.k < maxLen) step(); } else step();
+  }
+
+  function readLine(key, id, i) {
+    var a = S.allocs[key], p = a.accessPath(id, i), blk = p[p.length - 1], s = a.structureOf(id);
+    var n = p.length + ' disk okuması';
+    if (key === 'contiguous') return { path: p, line: 'Dizin girdisinde başlangıç = ' + s.start + '; ' + s.start + ' + ' + i + ' = ' + blk + ' doğrudan hesaplandı ve okundu: ' + n + '.' };
+    if (key === 'linked') return { path: p, line: 'Zincir baştan izlendi, her blok işaretçisi için okundu: ' + pathText(p) + ' — ' + n + ' (i + 1).' };
+    if (key === 'fat') return { path: p, line: 'Zincir bellekteki FAT tablosunda izlendi (disk okuması gerekmez); yalnızca ' + blk + ' numaralı veri bloğu okundu: ' + n + '.' };
+    if (key === 'indexed') {
+      var idx = p.slice(0, -1);
+      return { path: p, line: (idx.length === 1 ? 'İndeks bloğu ' + idx[0] + ' okundu' : 'İndeks blokları ' + idx.join(' → ') + ' sırayla okundu') + ', ' + i + '. mantıksal bloğun adresi ' + blk + ' bulundu; veri bloğu okundu: ' + n + '.' };
+    }
+    var k = 0;
+    while (k + 1 < s.extents.length && s.extents[k + 1].logicalStart <= i) k++;
+    var ex = s.extents[k];
+    var calc = 'extent ' + (k + 1) + ' (başlangıç ' + ex.start + ', uzunluk ' + ex.length + '): ' + ex.start + ' + ' + (i - ex.logicalStart) + ' = ' + blk;
+    if (s.inInode) return { path: p, line: 'Extent listesi inode içinde; ' + calc + ' hesaplandı ve okundu: ' + n + '.' };
+    return { path: p, line: 'Extent ağacı bloğu ' + p.slice(0, -1).join(' → ') + ' okundu; ' + calc + ' bulundu, veri bloğu okundu: ' + n + '.' };
+  }
+
+  function doRead(seq) {
+    var id = S.selected;
+    if (id === null) { status('Önce bir dosya seçin.'); return; }
+    clearAnim();
+    paint();
+    var raw = $('readIdx').value.trim();
+    var i = raw === '' ? NaN : Number(raw);
+    if (!seq && !(Number.isInteger(i) && i >= 0)) { status('Mantıksal blok numarası 0 ya da daha büyük bir tam sayı olmalı.'); return; }
+    var entry = { n: null, title: seq ? ['Sıralı oku ', { id: id }] : ['Oku ', { id: id }, ' · mantıksal blok ' + i], res: {} };
+    var paths = {};
+    KEYS.forEach(function (k) {
+      var a = S.allocs[k];
+      if (!a.has(id)) { entry.res[k] = { ok: false, skipped: true, lines: ['"' + id + '" bu yöntemde yok; okuma yapılamadı.'] }; return; }
+      var n = a.blocksOf(id).length;
+      if (seq) {
+        var p = a.seqPath(id), c = C.seqCostOfPath(p);
+        paths[k] = p;
+        entry.res[k] = { ok: true, lines: ['Okunan bloklar: ' + pathText(p) + ' — ' + c.reads + ' okuma + ' + c.seeks + ' konumlanma = maliyet ' + c.cost + '.'] };
+      } else if (i >= n) {
+        entry.res[k] = { ok: false, skipped: true, lines: ['Mantıksal blok ' + i + ' yok: "' + id + '" bu yöntemde ' + n + ' blok tutuyor (0–' + (n - 1) + ').'] };
+      } else {
+        var r = readLine(k, id, i);
+        paths[k] = r.path;
+        entry.res[k] = { ok: true, lines: [r.line] };
+      }
+    });
+    S.log.push(entry);
+    renderLog(false);
+    var act = activeKey();
+    status(paths[act] ? '' : (S.allocs[act].has(id) ? 'Mantıksal blok ' + i + ' yok: "' + id + '" ' + methodTitle(act) + ' yönteminde 0–' + (S.allocs[act].blocksOf(id).length - 1) + ' arası bloklara sahip.' : '"' + id + '" bu yöntemde yok; okunacak blok bulunamadı.'));
+    animate(paths, seq);
+  }
+
+  function selectFile(id, toggle) {
+    clearAnim();
+    S.selected = (toggle && S.selected === id) ? null : id;
+    render();
+    var row = $('files').querySelector('tr.sel');
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+  }
+
+  function renderFiles() {
+    var key = activeKey(), a = S.allocs[key];
+    var tb = $('files').tBodies[0];
+    tb.textContent = '';
+    $('filesSub').textContent = methodTitle(key) + ' · ' + a.fileIds().length + ' dosya';
+    if (S.logical.size === 0) {
+      var tr0 = el('tr'), td0 = el('td', 'muted', 'Henüz dosya yok.');
+      td0.colSpan = 5; tr0.appendChild(td0); tb.appendChild(tr0);
+      return;
+    }
+    S.logical.forEach(function (f, id) {
+      var has = a.has(id);
+      var tr = el('tr', (id === S.selected ? 'sel' : '') + (has ? '' : ' gone'));
+      var td = el('td');
+      var btn = el('button', 'fileBtn');
+      btn.type = 'button';
+      btn.setAttribute('aria-pressed', id === S.selected ? 'true' : 'false');
+      btn.setAttribute('aria-label', id + ' dosyasını seç');
+      var sw = el('span', 'sw');
+      sw.style.background = colorOf(id)[0];
+      btn.appendChild(sw);
+      btn.appendChild(document.createTextNode(id));
+      btn.addEventListener('click', function () { selectFile(id, true); });
+      td.appendChild(btn);
+      tr.appendChild(td);
+      if (has) {
+        var info = a.fileInfo(id);
+        tr.appendChild(el('td', 'num', nf(info.size / 1024, 1) + ' KB'));
+        tr.appendChild(el('td', 'num', String(info.dataBlocks)));
+        tr.appendChild(el('td', 'num', String(info.fragments)));
+        tr.appendChild(el('td', 'num', String(info.metaBlocks)));
+      } else {
+        var tdx = el('td', 'muted', 'bu yöntemde reddedildi');
+        tdx.colSpan = 4;
+        tr.appendChild(tdx);
+      }
+      tb.appendChild(tr);
+    });
+  }
+
+  function p(text, cls) { return el('p', cls || '', text); }
+  function simpleTable(head, rows) {
+    var t = el('table'), th = el('thead'), tr = el('tr');
+    head.forEach(function (h, i) { tr.appendChild(el('th', i ? 'num' : '', h)); });
+    th.appendChild(tr); t.appendChild(th);
+    var tb = el('tbody');
+    rows.forEach(function (r) {
+      var row = el('tr');
+      r.forEach(function (v, i) { row.appendChild(el('td', i ? 'num' : 'mono', String(v))); });
+      tb.appendChild(row);
+    });
+    t.appendChild(tb);
+    return t;
+  }
+
+  function renderStruct() {
+    var box = $('struct'), key = activeKey(), a = S.allocs[key], id = S.selected;
+    box.textContent = '';
+    $('stSub').textContent = methodTitle(key);
+    $('secStruct').classList.toggle('grow', id !== null);
+    if (id === null) { box.appendChild(p('Yapısını görmek için bir dosya seçin (listeden ya da haritadaki bloğuna tıklayarak).', 'cap')); return; }
+    if (!a.has(id)) { box.appendChild(p('"' + id + '" bu yöntemde yok: oluşturma isteği reddedilmişti.', 'cap')); return; }
+    var s = a.structureOf(id), i;
+    if (s.type === 'contiguous') {
+      box.appendChild(p('Dizin girdisi'));
+      box.appendChild(simpleTable(['Ad', 'Başlangıç', 'Uzunluk', 'Boyut (bayt)'], [[id, s.start, s.length, s.size]]));
+      box.appendChild(p('Mantıksal blok i → disk bloğu ' + s.start + ' + i. Aralık: ' + s.start + '–' + (s.start + s.length - 1) + '.', 'cap'));
+      return;
+    }
+    if (s.type === 'linked') {
+      box.appendChild(p('Dizin girdisi'));
+      box.appendChild(simpleTable(['Ad', 'İlk blok', 'Son blok', 'Blok sayısı'], [[id, s.first, s.last, s.length]]));
+      box.appendChild(p(s.fat ? 'İşaretçi zinciri (bellekteki FAT tablosunda: FAT[' + s.first + '] = ' + (s.chain[0].next === null ? 'son' : s.chain[0].next) + ', …)'
+        : 'İşaretçi zinciri (her bloğun son ' + P + ' baytı bir sonraki bloğu gösterir)', 'cap'));
+      var ch = el('div', 'chain');
+      var maxShow = 96;
+      for (i = 0; i < s.chain.length && i < maxShow; i++) {
+        ch.appendChild(el('span', 'b', String(s.chain[i].block)));
+        ch.appendChild(el('span', 'a', '→'));
+      }
+      ch.appendChild(el('span', 'end', s.chain.length > maxShow ? '… +' + (s.chain.length - maxShow) + ' blok' : 'son'));
+      box.appendChild(ch);
+      return;
+    }
+    if (s.type === 'indexed') {
+      s.indexBlocks.forEach(function (ib, n) {
+        box.appendChild(p('İndeks bloğu ' + ib.block + (s.indexBlocks.length > 1 ? ' (' + (n + 1) + '. / ' + s.indexBlocks.length + ')' : '') +
+          ' — ' + ib.entries.length + ' / ' + ib.capacity + ' girdi dolu'));
+        var g = el('div', 'idx');
+        var show = Math.min(ib.entries.length, 64);
+        for (i = 0; i < show; i++) {
+          var d = el('div');
+          d.appendChild(el('span', '', '[' + (ib.firstLogical + i) + ']'));
+          d.appendChild(document.createTextNode(String(ib.entries[i])));
+          g.appendChild(d);
+        }
+        if (ib.next !== null) {
+          var nx = el('div', 'nx');
+          nx.appendChild(el('span', '', '[son]'));
+          nx.appendChild(document.createTextNode('→ ' + ib.next));
+          g.appendChild(nx);
+        }
+        box.appendChild(g);
+        if (ib.entries.length > show) box.appendChild(p('… ' + (ib.entries.length - show) + ' girdi daha gösterilmiyor.', 'cap'));
+      });
+      box.appendChild(p('Girdi [i] = i. mantıksal bloğun disk adresi (' + P + ' bayt). Erişim: indeks bloğu + veri bloğu.', 'cap'));
+      return;
+    }
+    box.appendChild(p(s.inInode ? 'Extent listesi inode içinde (' + s.extents.length + ' / ' + s.inodeCapacity + ' extent).'
+      : 'Extent listesi ağaç bloğunda: blok ' + s.leaves.concat(s.nodes).join(', ') + ' (' + s.extents.length + ' extent; inode en çok ' + s.inodeCapacity + ' tutar).'));
+    box.appendChild(simpleTable(['#', 'Başlangıç', 'Uzunluk', 'Mantıksal aralık'], s.extents.map(function (e, n) {
+      return [n + 1, e.start, e.length, e.logicalStart + '–' + (e.logicalStart + e.length - 1)];
+    })));
+  }
+
+  var METRIC_ROWS = [
+    ['Doluluk', function (m) { return '%' + nf(m.utilization * 100, 1); }, function (m) { return m.usedBlocks + ' / ' + m.N + ' blok'; }],
+    ['Boşluk sayısı', function (m) { return String(m.freeRuns); }],
+    ['En büyük boşluk', function (m) { return m.largestFreeRun + ' blok'; }, function (m) { return m.freeBlocks + ' boş blok'; }],
+    ['Dış parçalanma indeksi', function (m) { return nf(m.extFragIndex, 3); }],
+    ['Ortalama parça sayısı', function (m) { return nf(m.meanFragments, 2); }, function (m) { return 'en çok ' + m.maxFragments; }],
+    ['Sıralı okuma maliyeti / blok', function (m) { return nf(m.seqCostPerBlock, 3); }],
+    ['Rastgele erişim maliyeti', function (m) { return nf(m.randomAccessCost, 2); }, function () { return 'okuma'; }],
+    ['Üstveri yükü', function (m) { return '%' + nf(m.metaOverhead * 100, 3); }, function (m) { return m.metaBlocks + ' blok'; }],
+    ['Reddedilen istek', function (m) { return String(m.failedTotal); }, function (m) { return m.fragFailures + ' dış parçalanma'; }],
+    ['Taşınan blok', function (m) { return String(m.movedBlocks); }]
+  ];
+
+  function renderMetrics() {
+    var single = S.view === 'tek';
+    $('secMetrics').hidden = !single;
+    $('secCmp').hidden = single;
+    $('secStruct').hidden = false;
+    if (single) {
+      var key = activeKey(), m = S.allocs[key].metrics();
+      $('metSub').textContent = methodTitle(key);
+      var tb = $('metrics').tBodies[0];
+      tb.textContent = '';
+      METRIC_ROWS.forEach(function (r) {
+        var tr = el('tr');
+        tr.appendChild(el('td', '', r[0]));
+        var v = el('td', 'num');
+        v.appendChild(el('b', '', r[1](m)));
+        tr.appendChild(v);
+        tr.appendChild(el('td', 'num note', r[2] ? r[2](m) : ''));
+        tb.appendChild(tr);
+      });
+      return;
+    }
+    var act = activeKey();
+    var ms = {};
+    KEYS.forEach(function (k) { ms[k] = S.allocs[k].metrics(); });
+    var th = $('cmp').tHead, tbc = $('cmp').tBodies[0];
+    th.textContent = ''; tbc.textContent = '';
+    var hr = el('tr');
+    hr.appendChild(el('th', '', 'Ölçüt'));
+    KEYS.forEach(function (k) { hr.appendChild(el('th', 'num' + (k === act ? ' active' : ''), LABEL[k])); });
+    th.appendChild(hr);
+    METRIC_ROWS.forEach(function (r, idx) {
+      var tr = el('tr');
+      tr.appendChild(el('td', '', idx === 8 ? r[0] + ' (dış parçalanma)' : r[0]));
+      KEYS.forEach(function (k) {
+        var txt = r[1](ms[k]);
+        if (idx === 8) txt += ' (' + ms[k].fragFailures + ')';
+        if (idx === 2) txt = String(ms[k].largestFreeRun);
+        tr.appendChild(el('td', 'num', txt));
+      });
+      tbc.appendChild(tr);
+    });
+  }
+
+  function logEntryEl(e) {
+    var d = el('div', 'le');
+    d.appendChild(el('span', 'n', e.n === null ? '·' : '#' + String(e.n).padStart(3, '0')));
+    var t = el('span', 't');
+    (Array.isArray(e.title) ? e.title : [e.title]).forEach(function (part) {
+      if (typeof part === 'string') t.appendChild(document.createTextNode(part));
+      else t.appendChild(el('span', 'fid', part.id));
+    });
+    d.appendChild(t);
+    if (e.note) {
+      var mm = el('div', 'm');
+      mm.appendChild(el('span', 'k', 'Bilgi'));
+      mm.appendChild(el('div', 'ln', e.note));
+      d.appendChild(mm);
+      return d;
+    }
+    visibleKeys().forEach(function (k) {
+      var r = e.res[k];
+      if (!r) return;
+      var m = el('div', 'm');
+      m.appendChild(el('span', 'k', LABEL[k]));
+      var lines = el('div');
+      r.lines.forEach(function (ln) {
+        var cls = 'ln';
+        if (ln.indexOf('Reddedildi') === 0) cls += ' rej';
+        else if (r.skipped) cls += ' skip';
+        lines.appendChild(el('div', cls, ln));
+      });
+      m.appendChild(lines);
+      d.appendChild(m);
+    });
+    return d;
+  }
+
+  function renderLog(full) {
+    var box = $('logBody');
+    if (full) { box.textContent = ''; S.logDrawn = Math.max(0, S.log.length - 150); }
+    for (var i = S.logDrawn; i < S.log.length; i++) box.appendChild(logEntryEl(S.log[i]));
+    S.logDrawn = S.log.length;
+    while (box.childNodes.length > 150) box.removeChild(box.firstChild);
+    box.scrollTop = box.scrollHeight;
+    $('logSub').textContent = S.view === 'tek' ? methodTitle(activeKey()) + ' yönteminin kararları' : 'dört yöntemin kararları yan yana';
+  }
+
+  function renderControls() {
+    var id = S.selected, key = activeKey(), a = S.allocs[key];
+    var has = id !== null && a.has(id);
+    $('selName').textContent = id === null ? 'yok' : id;
+    $('selName').className = id === null ? 'none' : '';
+    ['btnExtend', 'btnDelete', 'btnDesel'].forEach(function (b) { $(b).disabled = id === null; });
+    $('btnRead').disabled = !has;
+    $('btnSeq').disabled = !has;
+    $('readHint').textContent = has ? '0–' + (a.blocksOf(id).length - 1) : '';
+    var tabs = $('methodTabs').querySelectorAll('button');
+    for (var i = 0; i < tabs.length; i++) {
+      var on = tabs[i].dataset.method === S.method;
+      tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
+      tabs[i].tabIndex = on ? 0 : -1;
+    }
+    $('viewTek').setAttribute('aria-pressed', S.view === 'tek' ? 'true' : 'false');
+    $('viewCmp').setAttribute('aria-pressed', S.view === 'tek' ? 'false' : 'true');
+    $('mapTitle').textContent = S.view === 'tek' ? methodTitle(key) : 'Dört yöntem · aynı işlem dizisi';
+    var pl = S.play;
+    $('btnPlay').textContent = pl && pl.pos < pl.ops.length && pl.pos > 0 ? 'Sürdür' : 'Başlat';
+    $('btnPlay').disabled = !!(pl && pl.running);
+    $('btnPause').disabled = !(pl && pl.running);
+    $('btnFinish').disabled = !(pl && pl.pos < pl.ops.length);
+    $('wlProg').textContent = pl ? 'işlem ' + pl.pos + ' / ' + pl.ops.length + (pl.pos >= pl.ops.length ? ' · bitti' : (pl.pos <= pl.phase1 ? ' · aşama 1 (doldurma)' : ' · aşama 2 (yaşlandırma)')) : '';
+  }
+
+  function render() {
+    paint();
+    renderFiles();
+    renderStruct();
+    renderMetrics();
+    renderLog(false);
+    renderControls();
+  }
+
+  function stopPlay() {
+    if (S.play && S.play.timer) clearTimeout(S.play.timer);
+    S.play = null;
+  }
+  function prepareWorkload() {
+    var seed = parseInt($('wSeed').value, 10), u = parseFloat($('wU').value), ops = parseInt($('wOps').value, 10);
+    if (!(seed >= 1)) { status('Tohum 1 ya da daha büyük bir tam sayı olmalı.'); return false; }
+    if (!(ops >= 0)) { status('İşlem sayısı 0 ya da daha büyük olmalı.'); return false; }
+    resetAll();
+    var preset = C.workloadPreset(S.N);
+    var trace = C.generateTrace({ N: S.N, B: B, u: u, seed: seed, agingOps: ops, classes: preset.classes, extendMax: preset.extendMax, idPrefix: 'd' });
+    $('wOps').value = ops;
+    var names = {}, cnt = 0;
+    trace.ops.forEach(function (op) {
+      if (!names[op.id]) { names[op.id] = String.fromCharCode(97 + cnt % 26) + (Math.floor(cnt / 26) + 1); cnt++; }
+      op.id = names[op.id];
+    });
+    S.play = { ops: trace.ops, pos: 0, phase1: trace.stats.phase1Ops, running: false, timer: null };
+    var cl = preset.classes;
+    S.log.push({ n: null, title: 'Rastgele iş yükü hazırlandı', note: 'Tohum ' + seed + ', hedef doluluk ' + nf(u, 2) + ': ' + trace.ops.length + ' işlem (' + trace.stats.phase1Ops +
+      ' doldurma + ' + ops + ' yaşlandırma). Dosya boyutları: %70 ' + cl[0].min + '–' + cl[0].max + ', %25 ' + cl[1].min + '–' + cl[1].max + ', %5 ' + cl[2].min + '–' + cl[2].max +
+      ' blok; yaşlandırmada %45 oluşturma, %35 silme, %20 büyütme (1–' + preset.extendMax + ' blok).' });
+    renderLog(false);
+    return true;
+  }
+  function stepWorkload() {
+    var pl = S.play;
+    if (!pl || pl.pos >= pl.ops.length) return false;
+    doOp(pl.ops[pl.pos++]);
+    if (pl.pos >= pl.ops.length) { pl.running = false; status('İş yükü tamamlandı: ' + pl.ops.length + ' işlem uygulandı.'); renderControls(); }
+    return true;
+  }
+  function tick() {
+    var pl = S.play;
+    if (!pl || !pl.running) return;
+    stepWorkload();
+    if (S.play === pl && pl.running) pl.timer = setTimeout(tick, 1000 / S.speed);
+  }
+
+  $('fCreate').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var name = $('cName').value.trim(), size = parseFloat($('cSize').value), unit = $('cUnit').value;
+    if (!name) { status('Dosyaya bir ad verin.'); $('cName').focus(); return; }
+    if (S.logical.has(name)) { status('"' + name + '" adı kullanımda; başka bir ad seçin.'); $('cName').focus(); return; }
+    if (!(size > 0)) { status('Boyut pozitif bir sayı olmalı.'); $('cSize').focus(); return; }
+    var bytes = Math.round(unit === 'kb' ? size * 1024 : size * B);
+    if (bytes < 1) bytes = 1;
+    var e = doOp({ op: 'create', id: name, bytes: bytes });
+    if (S.logical.has(name)) { S.selected = name; render(); }
+    var k = activeKey();
+    status(e.res[k].ok ? '"' + name + '" oluşturuldu (' + methodTitle(k) + ').' : '"' + name + '" ' + methodTitle(k) + ' yönteminde reddedildi; nedeni adım günlüğünde.');
+    $('cName').value = nextName();
+  });
+  $('fExtend').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (S.selected === null) { status('Önce bir dosya seçin.'); return; }
+    var raw = $('eSize').value.trim();
+    var n = raw === '' ? NaN : Number(raw);
+    if (!(Number.isInteger(n) && n > 0)) { status('Ek blok sayısı pozitif bir tam sayı olmalı.'); $('eSize').focus(); return; }
+    var id = S.selected;
+    var e = doOp({ op: 'extend', id: id, bytes: n * B });
+    var k = activeKey();
+    status(e.res[k].ok ? '"' + id + '" büyütüldü (' + methodTitle(k) + ').' : '"' + id + '" ' + methodTitle(k) + ' yönteminde büyütülemedi; nedeni adım günlüğünde.');
+  });
+  $('fRead').addEventListener('submit', function (ev) { ev.preventDefault(); doRead(false); });
+  $('btnSeq').addEventListener('click', function () { doRead(true); });
+  $('btnDelete').addEventListener('click', function () {
+    if (S.selected === null) return;
+    var id = S.selected;
+    doOp({ op: 'delete', id: id });
+    status('"' + id + '" silindi.');
+    $('cName').value = nextName();
+  });
+  $('btnDesel').addEventListener('click', function () { clearAnim(); S.selected = null; render(); });
+  $('btnReset').addEventListener('click', function () { resetAll('Disk sıfırlandı.'); });
+  $('diskN').addEventListener('change', function () { S.N = parseInt(this.value, 10); resetAll('Disk boyutu ' + S.N + ' blok oldu.'); });
+  $('policy').addEventListener('change', function () { S.policy = this.value; rebuild(); status('Bitişik tahsis artık "' + (S.policy === 'best-fit' ? 'en uygun' : 'ilk uygun') + '" yerleştirme kullanıyor; geçmiş yeniden oynatıldı.'); });
+  $('chkFat').addEventListener('change', function () {
+    S.fat = this.checked;
+    clearAnim();
+    buildMaps(); renderLog(true); render();
+  });
+
+  function setMethod(mth, focus) {
+    S.method = mth;
+    clearAnim();
+    if (S.view === 'tek') buildMaps();
+    renderLog(true);
+    render();
+    if (focus) $('tab-' + mth).focus();
+  }
+  $('methodTabs').addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (t && t.dataset && t.dataset.method) setMethod(t.dataset.method, false);
+  });
+  $('methodTabs').addEventListener('keydown', function (ev) {
+    var i = FOUR.indexOf(S.method), j = -1;
+    if (ev.key === 'ArrowRight') j = (i + 1) % 4;
+    else if (ev.key === 'ArrowLeft') j = (i + 3) % 4;
+    else if (ev.key === 'Home') j = 0;
+    else if (ev.key === 'End') j = 3;
+    if (j >= 0) { ev.preventDefault(); setMethod(FOUR[j], true); }
+  });
+  function setView(v) {
+    S.view = v;
+    clearAnim();
+    buildMaps(); renderLog(true); render();
+  }
+  $('viewTek').addEventListener('click', function () { setView('tek'); });
+  $('viewCmp').addEventListener('click', function () { setView('cmp'); });
+
+  $('wSpeed').addEventListener('input', function () { S.speed = parseInt(this.value, 10); $('wSpeedV').textContent = S.speed + ' işlem/sn'; });
+  $('btnPlay').addEventListener('click', function () {
+    if (!S.play || S.play.pos >= S.play.ops.length) { if (!prepareWorkload()) return; }
+    S.play.running = true;
+    status('');
+    renderControls();
+    tick();
+  });
+  $('btnPause').addEventListener('click', function () {
+    if (!S.play) return;
+    S.play.running = false;
+    if (S.play.timer) clearTimeout(S.play.timer);
+    renderControls();
+  });
+  $('btnStep').addEventListener('click', function () {
+    if (!S.play || S.play.pos >= S.play.ops.length) { if (!prepareWorkload()) return; }
+    S.play.running = false;
+    if (S.play.timer) clearTimeout(S.play.timer);
+    stepWorkload();
+    renderControls();
+  });
+  $('btnFinish').addEventListener('click', function () {
+    var pl = S.play;
+    if (!pl) return;
+    pl.running = false;
+    if (pl.timer) clearTimeout(pl.timer);
+    clearAnim();
+    while (pl.pos < pl.ops.length) { var op = pl.ops[pl.pos++]; S.history.push(op); applyToAll(op); }
+    status('İş yükü tamamlandı: ' + pl.ops.length + ' işlem uygulandı.');
+    render();
+  });
+
+  var rz = null;
+  window.addEventListener('resize', function () { if (rz) clearTimeout(rz); rz = setTimeout(layout, 60); });
+
+  if (navigator.onLine && location.search.indexOf('yazitipi=yok') < 0) {
+    var lk = document.createElement('link');
+    lk.rel = 'stylesheet';
+    lk.href = 'https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap';
+    document.head.appendChild(lk);
+  }
+
+  window.BlokSim = { state: S, layout: layout };
+  resetAll();
+})();
+</script>
+</body>
+</html>
